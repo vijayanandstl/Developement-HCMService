@@ -13,37 +13,27 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Run stage
-FROM eclipse-temurin:17-jre-alpine
-
-# Add labels
-LABEL maintainer="HCM Team"
-LABEL description="Candidate Microservice"
-LABEL version="1.0"
-
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-# Add non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Create a non-root user
+RUN groupadd -r spring && useradd -r -g spring spring
 
-# Copy the built artifact
-COPY --from=build /app/target/*.jar app.jar
+# Copy the built jar from build stage
+COPY --from=build /app/target/candidate-microservice-1.0.0.jar app.jar
 
-# Set environment variables
-ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.security.egd=file:/dev/./urandom"
-
-# Create directory for application logs
-RUN mkdir -p /var/log/app && \
-    chown -R appuser:appgroup /var/log/app
+# Set proper permissions
+RUN chown -R spring:spring /app
 
 # Switch to non-root user
-USER appuser
-
-# Expose the application port
-EXPOSE 8080
+USER spring
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+# Expose port
+EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"] 
+ENTRYPOINT ["java", "-jar", "app.jar"] 

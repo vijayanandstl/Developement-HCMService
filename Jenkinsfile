@@ -27,7 +27,9 @@ pipeline {
                     sh '''
                         docker login -u $DOCKER_USER -p $DOCKER_PASS
                         docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+                        docker tag $DOCKER_IMAGE:$DOCKER_TAG $DOCKER_IMAGE:latest
                         docker push $DOCKER_IMAGE:$DOCKER_TAG
+                        docker push $DOCKER_IMAGE:latest
                     '''
                 }
             }
@@ -38,11 +40,13 @@ pipeline {
                 script {
                     // Using kubeconfig from Jenkins credentials
                     withCredentials([file(credentialsId: 'kubeconfig-jenkins', variable: 'KUBECONFIG')]) {
-                        // Update deployment with new image
+                        // Update kustomization.yaml with new image tag
                         sh """
-                            kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
-                                candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
-                                -n $KUBE_NAMESPACE
+                            cd k8s/candidate-deployment
+                            kustomize edit set image techbu/hcm:$DOCKER_TAG
+                            
+                            # Apply kustomization
+                            kubectl --kubeconfig=$KUBECONFIG apply -k .
                             
                             # Verify deployment
                             kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE

@@ -15,15 +15,25 @@ spec:
     spec:
       containers:
       - name: candidate-service
-        image: candidate-service:latest
-        imagePullPolicy: IfNotPresent
+        image: techbu/hcm:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
-        envFrom:
-        - configMapRef:
-            name: candidate-service-config
-        - secretRef:
-            name: candidate-service-secret
+        env:
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "192.168.0.155:30092"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://192.168.0.155:30032/mydb"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
         resources:
           requests:
             memory: "512Mi"
@@ -36,10 +46,23 @@ spec:
             path: /actuator/health
             port: 8080
           initialDelaySeconds: 60
-          periodSeconds: 10
+          periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
           initialDelaySeconds: 30
-          periodSeconds: 5 
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: candidate-service
+  namespace: hcm
+spec:
+  selector:
+    app: candidate-service
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP 

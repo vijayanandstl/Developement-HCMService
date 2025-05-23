@@ -31,6 +31,9 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
+    @Value("${spring.kafka.consumer.group-id}")
+    private String groupId;
+
     @Value("${kafka.topic.candidate-created}")
     private String candidateCreatedTopic;
 
@@ -109,17 +112,17 @@ public class KafkaConfig {
 
     @Bean
     public NewTopic candidateCreatedTopic() {
-        return new NewTopic(candidateCreatedTopic, 1, (short) 1);
+        return new NewTopic("candidate-created", 3, (short) 1);
     }
 
     @Bean
     public NewTopic candidateUpdatedTopic() {
-        return new NewTopic(candidateUpdatedTopic, 1, (short) 1);
+        return new NewTopic("candidate-updated", 3, (short) 1);
     }
 
     @Bean
     public NewTopic candidateDeletedTopic() {
-        return new NewTopic(candidateDeletedTopic, 1, (short) 1);
+        return new NewTopic("candidate-deleted", 3, (short) 1);
     }
 
     @Bean
