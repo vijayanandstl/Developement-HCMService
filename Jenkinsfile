@@ -64,10 +64,16 @@ pipeline {
                             echo "Applying Service..."
                             kubectl --kubeconfig=$KUBECONFIG apply -f k8s/candidate-deployment/service.yaml || exit 1
                             
-                            echo "Updating deployment with new image..."
-                            kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
-                                candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
-                                -n $KUBE_NAMESPACE || exit 1
+                            echo "Checking if deployment exists..."
+                            if ! kubectl --kubeconfig=$KUBECONFIG get deployment candidate-service -n $KUBE_NAMESPACE &>/dev/null; then
+                                echo "Deployment does not exist. Creating initial deployment..."
+                                kubectl --kubeconfig=$KUBECONFIG apply -f k8s/candidate-deployment/deployment.yaml || exit 1
+                            else
+                                echo "Updating existing deployment with new image..."
+                                kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
+                                    candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
+                                    -n $KUBE_NAMESPACE || exit 1
+                            fi
                             
                             echo "Waiting for deployment to complete..."
                             kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE || exit 1
