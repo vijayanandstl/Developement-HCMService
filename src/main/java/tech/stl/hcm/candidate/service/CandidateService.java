@@ -9,6 +9,8 @@ import tech.stl.hcm.candidate.exception.CandidateNotFoundException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,14 +21,16 @@ import java.util.Date;
 @Service
 public class CandidateService {
     private final CandidateRepository candidateRepository;
-    private final KafkaTemplate<String, Candidate> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private static final UUID DEFAULT_TENANT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID DEFAULT_ORGANIZATION_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID DEFAULT_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
+    private static final Logger logger = LoggerFactory.getLogger(CandidateService.class);
+
     @Autowired
     public CandidateService(CandidateRepository candidateRepository, 
-                          @Autowired(required = false) KafkaTemplate<String, Candidate> kafkaTemplate) {
+                          @Autowired(required = false) KafkaTemplate<String, Object> kafkaTemplate) {
         this.candidateRepository = candidateRepository;
         this.kafkaTemplate = kafkaTemplate;
     }
@@ -65,12 +69,26 @@ public class CandidateService {
         }
 
         Candidate saved = candidateRepository.save(candidate);
+        
+        // Send Kafka message with retry and error handling
         if (kafkaTemplate != null) {
             try {
-                kafkaTemplate.send("candidate.create", saved);
+                logger.info("Sending candidate creation message to Kafka for candidate ID: {}", saved.getCandidateId());
+                kafkaTemplate.send("candidate-created", saved)
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            logger.info("Successfully sent candidate creation message to Kafka. Topic: {}, Partition: {}, Offset: {}", 
+                                result.getRecordMetadata().topic(),
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                        } else {
+                            logger.error("Failed to send candidate creation message to Kafka for candidate ID: {}", 
+                                saved.getCandidateId(), ex);
+                        }
+                    });
             } catch (Exception e) {
-                // Log error but don't fail the request
-                System.err.println("Failed to send Kafka message: " + e.getMessage());
+                logger.error("Error while sending candidate creation message to Kafka for candidate ID: {}", 
+                    saved.getCandidateId(), e);
             }
         }
         
@@ -99,12 +117,26 @@ public class CandidateService {
         }
         
         Candidate updated = candidateRepository.save(candidate);
+        
+        // Send Kafka message with retry and error handling
         if (kafkaTemplate != null) {
             try {
-                kafkaTemplate.send("candidate.update", updated);
+                logger.info("Sending candidate update message to Kafka for candidate ID: {}", updated.getCandidateId());
+                kafkaTemplate.send("candidate-updated", updated)
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            logger.info("Successfully sent candidate update message to Kafka. Topic: {}, Partition: {}, Offset: {}", 
+                                result.getRecordMetadata().topic(),
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                        } else {
+                            logger.error("Failed to send candidate update message to Kafka for candidate ID: {}", 
+                                updated.getCandidateId(), ex);
+                        }
+                    });
             } catch (Exception e) {
-                // Log error but don't fail the request
-                System.err.println("Failed to send Kafka message: " + e.getMessage());
+                logger.error("Error while sending candidate update message to Kafka for candidate ID: {}", 
+                    updated.getCandidateId(), e);
             }
         }
         
@@ -117,13 +149,40 @@ public class CandidateService {
         Candidate candidate = candidateRepository.findById(id)
                 .orElseThrow(() -> new CandidateNotFoundException("Candidate not found: " + id));
         candidateRepository.deleteById(id);
+        
+        // Send Kafka message with retry and error handling
         if (kafkaTemplate != null) {
             try {
-                kafkaTemplate.send("candidate.delete", candidate);
+                logger.info("Sending candidate deletion message to Kafka for candidate ID: {}", id);
+                kafkaTemplate.send("candidate-deleted", candidate)
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            logger.info("Successfully sent candidate deletion message to Kafka. Topic: {}, Partition: {}, Offset: {}", 
+                                result.getRecordMetadata().topic(),
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                        } else {
+                            logger.error("Failed to send candidate deletion message to Kafka for candidate ID: {}", 
+                                id, ex);
+                        }
+                    });
             } catch (Exception e) {
-                // Log error but don't fail the request
-                System.err.println("Failed to send Kafka message: " + e.getMessage());
+                logger.error("Error while sending candidate deletion message to Kafka for candidate ID: {}", 
+                    id, e);
             }
+        }
+    }
+
+    public void processCandidate(Candidate candidate) {
+        try {
+            logger.info("Processing candidate from Kafka message: {}", candidate);
+            CandidateDTO dto = new CandidateDTO();
+            BeanUtils.copyProperties(candidate, dto);
+            createCandidate(dto);
+            logger.info("Successfully processed candidate from Kafka message");
+        } catch (Exception e) {
+            logger.error("Error processing candidate from Kafka message: {}", e.getMessage(), e);
+            throw e;
         }
     }
 } 

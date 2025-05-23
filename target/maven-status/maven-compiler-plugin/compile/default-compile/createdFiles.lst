@@ -8,6 +8,7 @@ tech\stl\hcm\candidate\model\Tenant.class
 tech\stl\hcm\candidate\interceptor\LoggingInterceptor.class
 tech\stl\hcm\candidate\model\Skill.class
 tech\stl\hcm\candidate\config\KafkaConfig.class
+tech\stl\hcm\candidate\listener\KafkaConsumerListener.class
 tech\stl\hcm\candidate\config\CandidateCircuitBreakerConfig.class
 tech\stl\hcm\candidate\config\CacheConfig.class
 tech\stl\hcm\candidate\repository\CandidateRepository.class
@@ -31,6 +32,7 @@ tech\stl\hcm\candidate\dto\CandidateSkillDTO.class
 tech\stl\hcm\candidate\dto\CandidateEducationDTO.class
 tech\stl\hcm\candidate\model\CandidateCertification.class
 tech\stl\hcm\candidate\model\CandidateWorkHistory.class
+tech\stl\hcm\candidate\controller\KafkaTestController.class
 tech\stl\hcm\candidate\service\CandidateEducationService.class
 tech\stl\hcm\candidate\config\RetryConfig.class
 tech\stl\hcm\candidate\model\CandidateSkillId.class
