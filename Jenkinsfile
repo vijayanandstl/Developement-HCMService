@@ -52,8 +52,8 @@ pipeline {
                             echo "Verifying cluster access..."
                             kubectl --kubeconfig=$KUBECONFIG cluster-info || exit 1
                             
-                            echo "Checking namespace..."
-                            kubectl --kubeconfig=$KUBECONFIG get namespace $KUBE_NAMESPACE || exit 1
+                            echo "Creating namespace if it doesn't exist..."
+                            kubectl --kubeconfig=$KUBECONFIG create namespace $KUBE_NAMESPACE --dry-run=client -o yaml | kubectl --kubeconfig=$KUBECONFIG apply -f - || exit 1
                             
                             echo "Updating deployment with new image..."
                             kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
