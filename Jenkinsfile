@@ -26,7 +26,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "Logging into Docker Hub..."
-                        docker login -u $DOCKER_USER -p $DOCKER_PASS || exit 1
+                        echo "$DOCKER_PASS" | docker login -u $DOCKER_USER --password-stdin || exit 1
                         
                         echo "Building Docker image..."
                         docker build -t $DOCKER_IMAGE:$DOCKER_TAG . || exit 1
@@ -50,12 +50,10 @@ pipeline {
                     // Using kubeconfig from Jenkins credentials
                     withCredentials([file(credentialsId: 'kubeconfig-jenkins', variable: 'KUBECONFIG')]) {
                         sh """
-                            echo "Updating kustomization with new image tag..."
-                            cd k8s/candidate-deployment
-                            kustomize edit set image techbu/hcm:$DOCKER_TAG || exit 1
-                            
-                            echo "Applying kustomization..."
-                            kubectl --kubeconfig=$KUBECONFIG apply -k . || exit 1
+                            echo "Updating deployment with new image..."
+                            kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
+                                candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
+                                -n $KUBE_NAMESPACE || exit 1
                             
                             echo "Waiting for deployment to complete..."
                             kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE || exit 1
