@@ -47,9 +47,14 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Using kubeconfig from Jenkins credentials
                     withCredentials([file(credentialsId: 'kubeconfig-jenkins', variable: 'KUBECONFIG')]) {
                         sh """
+                            echo "Verifying cluster access..."
+                            kubectl --kubeconfig=$KUBECONFIG cluster-info || exit 1
+                            
+                            echo "Checking namespace..."
+                            kubectl --kubeconfig=$KUBECONFIG get namespace $KUBE_NAMESPACE || exit 1
+                            
                             echo "Updating deployment with new image..."
                             kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
                                 candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
