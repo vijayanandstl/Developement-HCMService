@@ -25,11 +25,20 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
-                        docker login -u $DOCKER_USER -p $DOCKER_PASS
-                        docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
-                        docker tag $DOCKER_IMAGE:$DOCKER_TAG $DOCKER_IMAGE:latest
-                        docker push $DOCKER_IMAGE:$DOCKER_TAG
-                        docker push $DOCKER_IMAGE:latest
+                        echo "Logging into Docker Hub..."
+                        docker login -u $DOCKER_USER -p $DOCKER_PASS || exit 1
+                        
+                        echo "Building Docker image..."
+                        docker build -t $DOCKER_IMAGE:$DOCKER_TAG . || exit 1
+                        
+                        echo "Tagging latest image..."
+                        docker tag $DOCKER_IMAGE:$DOCKER_TAG $DOCKER_IMAGE:latest || exit 1
+                        
+                        echo "Pushing versioned image..."
+                        docker push $DOCKER_IMAGE:$DOCKER_TAG || exit 1
+                        
+                        echo "Pushing latest image..."
+                        docker push $DOCKER_IMAGE:latest || exit 1
                     '''
                 }
             }
@@ -40,16 +49,18 @@ pipeline {
                 script {
                     // Using kubeconfig from Jenkins credentials
                     withCredentials([file(credentialsId: 'kubeconfig-jenkins', variable: 'KUBECONFIG')]) {
-                        // Update kustomization.yaml with new image tag
                         sh """
+                            echo "Updating kustomization with new image tag..."
                             cd k8s/candidate-deployment
-                            kustomize edit set image techbu/hcm:$DOCKER_TAG
+                            kustomize edit set image techbu/hcm:$DOCKER_TAG || exit 1
                             
-                            # Apply kustomization
-                            kubectl --kubeconfig=$KUBECONFIG apply -k .
+                            echo "Applying kustomization..."
+                            kubectl --kubeconfig=$KUBECONFIG apply -k . || exit 1
                             
-                            # Verify deployment
-                            kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE
+                            echo "Waiting for deployment to complete..."
+                            kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE || exit 1
+                            
+                            echo "Deployment completed successfully!"
                         """
                     }
                 }
@@ -60,16 +71,16 @@ pipeline {
     post {
         always {
             // Cleanup Docker credentials
-            sh 'docker logout'
+            sh 'docker logout || true'
             
             // Cleanup workspace
             cleanWs()
         }
         success {
-            echo 'Deployment completed successfully!'
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'Deployment failed!'
+            echo 'Pipeline failed! Check the logs for details.'
         }
     }
 } 
