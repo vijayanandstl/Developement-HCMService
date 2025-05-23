@@ -55,12 +55,19 @@ pipeline {
                             echo "Creating namespace if it doesn't exist..."
                             kubectl --kubeconfig=$KUBECONFIG create namespace $KUBE_NAMESPACE --dry-run=client -o yaml | kubectl --kubeconfig=$KUBECONFIG apply -f - || exit 1
                             
-                            echo "Updating kustomization with new image tag..."
-                            cd k8s/candidate-deployment
-                            kustomize edit set image techbu/hcm:$DOCKER_TAG || exit 1
+                            echo "Applying ConfigMap..."
+                            kubectl --kubeconfig=$KUBECONFIG apply -f k8s/candidate-deployment/configmap.yaml || exit 1
                             
-                            echo "Applying kustomization..."
-                            kubectl --kubeconfig=$KUBECONFIG apply -k . || exit 1
+                            echo "Applying Secrets..."
+                            kubectl --kubeconfig=$KUBECONFIG apply -f k8s/candidate-deployment/secrets.yaml || exit 1
+                            
+                            echo "Applying Service..."
+                            kubectl --kubeconfig=$KUBECONFIG apply -f k8s/candidate-deployment/service.yaml || exit 1
+                            
+                            echo "Updating deployment with new image..."
+                            kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
+                                candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
+                                -n $KUBE_NAMESPACE || exit 1
                             
                             echo "Waiting for deployment to complete..."
                             kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE || exit 1
