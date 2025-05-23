@@ -6,8 +6,6 @@ pipeline {
         DOCKER_IMAGE = 'techbu/candidate-service'  // Updated to include username
         DOCKER_TAG = "${BUILD_NUMBER}"
         KUBE_NAMESPACE = 'hcm'
-        DOCKER_USER = 'techbu'
-        DOCKER_PASS = 'techbu@Stl2025'
     }
     
     stages {
@@ -25,11 +23,13 @@ pipeline {
         
         stage('Docker Build') {
             steps {
-                sh '''
-                    docker login -u $DOCKER_USER -p $DOCKER_PASS
-                    docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
-                    docker push $DOCKER_IMAGE:$DOCKER_TAG
-                '''
+                withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        docker login -u $DOCKER_USER -p $DOCKER_PASS
+                        docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+                        docker push $DOCKER_IMAGE:$DOCKER_TAG
+                    '''
+                }
             }
         }
         
