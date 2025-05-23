@@ -2,30 +2,37 @@
 
 # Create Docker credentials
 echo "Creating Docker credentials..."
-echo 'techbu' | jenkins-cli create-credentials-by-xml system::system::jenkins _ \
-    < <(cat <<EOF
-<com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
-  <scope>GLOBAL</scope>
-  <id>docker-credentials</id>
-  <description>Docker Registry Credentials</description>
-  <username>techbu</username>
-  <password>techbu@Stl2025</password>
-</com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
-EOF
-)
+curl -X POST \
+  -u admin:admin \
+  -H "Content-Type: application/json" \
+  -d '{
+    "": "0",
+    "credentials": {
+      "scope": "GLOBAL",
+      "id": "docker-credentials",
+      "username": "techbu",
+      "password": "techbu@Stl2025",
+      "description": "Docker Hub credentials",
+      "$class": "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+    }
+  }' \
+  http://localhost:8080/credentials/store/system/domain/_/createCredentials
 
-# Create Kubernetes credentials
-echo "Creating Kubernetes credentials..."
-echo 'kubeconfig' | jenkins-cli create-credentials-by-xml system::system::jenkins _ \
-    < <(cat <<EOF
-<org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl>
-  <scope>GLOBAL</scope>
-  <id>kubeconfig-jenkins</id>
-  <description>Kubernetes Config File</description>
-  <fileName>kubeconfig</fileName>
-  <contentBase64>$(base64 -w 0 ~/.kube/config)</contentBase64>
-</org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl>
-EOF
-)
+# Create Kubernetes config credentials
+echo "Creating Kubernetes config credentials..."
+curl -X POST \
+  -u admin:admin \
+  -H "Content-Type: application/json" \
+  -d '{
+    "": "0",
+    "credentials": {
+      "scope": "GLOBAL",
+      "id": "kubeconfig-jenkins",
+      "description": "Kubernetes Config File",
+      "file": "base64-encoded-kubeconfig",
+      "$class": "org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl"
+    }
+  }' \
+  http://localhost:8080/credentials/store/system/domain/_/createCredentials
 
 echo "Credentials setup completed!" 
