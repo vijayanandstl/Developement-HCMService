@@ -55,10 +55,52 @@ pipeline {
                             echo "Creating namespace if it doesn't exist..."
                             kubectl --kubeconfig=$KUBECONFIG create namespace $KUBE_NAMESPACE --dry-run=client -o yaml | kubectl --kubeconfig=$KUBECONFIG apply -f - || exit 1
                             
-                            echo "Updating deployment with new image..."
-                            kubectl --kubeconfig=$KUBECONFIG set image deployment/candidate-service \
-                                candidate-service=$DOCKER_IMAGE:$DOCKER_TAG \
-                                -n $KUBE_NAMESPACE || exit 1
+                            echo "Creating deployment if it doesn't exist..."
+                            cat <<EOF | kubectl --kubeconfig=$KUBECONFIG apply -f -
+                            apiVersion: apps/v1
+                            kind: Deployment
+                            metadata:
+                              name: candidate-service
+                              namespace: $KUBE_NAMESPACE
+                            spec:
+                              replicas: 1
+                              selector:
+                                matchLabels:
+                                  app: candidate-service
+                              template:
+                                metadata:
+                                  labels:
+                                    app: candidate-service
+                                spec:
+                                  containers:
+                                  - name: candidate-service
+                                    image: $DOCKER_IMAGE:$DOCKER_TAG
+                                    ports:
+                                    - containerPort: 8080
+                                    resources:
+                                      requests:
+                                        memory: "256Mi"
+                                        cpu: "200m"
+                                      limits:
+                                        memory: "512Mi"
+                                        cpu: "500m"
+                            EOF
+                            
+                            echo "Creating service if it doesn't exist..."
+                            cat <<EOF | kubectl --kubeconfig=$KUBECONFIG apply -f -
+                            apiVersion: v1
+                            kind: Service
+                            metadata:
+                              name: candidate-service
+                              namespace: $KUBE_NAMESPACE
+                            spec:
+                              selector:
+                                app: candidate-service
+                              ports:
+                              - port: 80
+                                targetPort: 8080
+                              type: ClusterIP
+                            EOF
                             
                             echo "Waiting for deployment to complete..."
                             kubectl --kubeconfig=$KUBECONFIG rollout status deployment/candidate-service -n $KUBE_NAMESPACE || exit 1
