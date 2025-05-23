@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         DOCKER_REGISTRY = 'docker.io'  // Docker Hub registry
-        DOCKER_IMAGE = 'techbu/candidate-service'  // Updated to include username
+        DOCKER_IMAGE = 'techbu/hcm'  // Updated to new repository name
         DOCKER_TAG = "${BUILD_NUMBER}"
         KUBE_NAMESPACE = 'hcm'
     }
